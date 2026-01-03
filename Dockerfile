@@ -32,22 +32,39 @@ RUN install -d /usr/share/postgresql-common/pgdg && \
     https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > \
     /etc/apt/sources.list.d/pgdg.list
 
-# 添加 MongoDB 官方 APT 源
-RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
-    gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] \
-    https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > \
-    /etc/apt/sources.list.d/mongodb-org-7.0.list
-
-# 安装所有数据库客户端工具
+# 安装非 MongoDB 的数据库客户端工具
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     default-mysql-client \
     mariadb-client \
-    mongodb-mongosh \
-    mongodb-database-tools \
     redis-tools \
     && rm -rf /var/lib/apt/lists/*
+
+# 安装 MongoDB 工具 (使用官方二进制包，支持多架构)
+RUN ARCH=$(dpkg --print-architecture) && \
+    echo "Installing MongoDB tools for architecture: $ARCH" && \
+    if [ "$ARCH" = "amd64" ]; then \
+        # mongosh for amd64
+        curl -fsSL https://downloads.mongodb.com/compass/mongosh-2.1.1-linux-x64.tgz -o /tmp/mongosh.tgz && \
+        tar -xzf /tmp/mongosh.tgz -C /tmp && \
+        cp /tmp/mongosh-*/bin/mongosh /usr/local/bin/ && \
+        # mongodb-database-tools for amd64
+        curl -fsSL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian12-x86_64-100.9.4.tgz -o /tmp/mongodb-tools.tgz && \
+        tar -xzf /tmp/mongodb-tools.tgz -C /tmp && \
+        cp /tmp/mongodb-database-tools-*/bin/* /usr/local/bin/ ; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        # mongosh for arm64
+        curl -fsSL https://downloads.mongodb.com/compass/mongosh-2.1.1-linux-arm64.tgz -o /tmp/mongosh.tgz && \
+        tar -xzf /tmp/mongosh.tgz -C /tmp && \
+        cp /tmp/mongosh-*/bin/mongosh /usr/local/bin/ && \
+        # mongodb-database-tools for arm64
+        curl -fsSL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian12-aarch64-100.9.4.tgz -o /tmp/mongodb-tools.tgz && \
+        tar -xzf /tmp/mongodb-tools.tgz -C /tmp && \
+        cp /tmp/mongodb-database-tools-*/bin/* /usr/local/bin/ ; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1 ; \
+    fi && \
+    rm -rf /tmp/mongosh* /tmp/mongodb*
 
 # 安装 Rclone
 RUN curl https://rclone.org/install.sh | bash
