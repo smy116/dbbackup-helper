@@ -1,5 +1,6 @@
 # 数据库备份工具 - Dockerfile
 # 基于 Debian 12 构建，支持多种数据库备份
+# 支持平台: linux/amd64, linux/arm64
 
 FROM debian:12-slim
 
@@ -31,28 +32,22 @@ RUN install -d /usr/share/postgresql-common/pgdg && \
     https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > \
     /etc/apt/sources.list.d/pgdg.list
 
-# 添加 MongoDB 官方 APT 源（仅在支持的架构上）
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "arm64" ]; then \
-        curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
-        gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && \
-        echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] \
-        https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > \
-        /etc/apt/sources.list.d/mongodb-org-7.0.list; \
-    fi
+# 添加 MongoDB 官方 APT 源
+RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+    gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] \
+    https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > \
+    /etc/apt/sources.list.d/mongodb-org-7.0.list
 
 # 安装所有数据库客户端工具
-RUN apt-get update && \
-    ARCH=$(dpkg --print-architecture) && \
-    apt-get install -y \
+RUN apt-get update && apt-get install -y \
     postgresql-client \
     default-mysql-client \
     mariadb-client \
-    redis-tools && \
-    if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "arm64" ]; then \
-        apt-get install -y mongodb-mongosh mongodb-database-tools; \
-    fi && \
-    rm -rf /var/lib/apt/lists/*
+    mongodb-mongosh \
+    mongodb-database-tools \
+    redis-tools \
+    && rm -rf /var/lib/apt/lists/*
 
 # 安装 Rclone
 RUN curl https://rclone.org/install.sh | bash
