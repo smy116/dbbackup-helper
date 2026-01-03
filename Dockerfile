@@ -18,7 +18,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     python3 \
     python3-pip \
-    python3-venv \
+    python3-requests \
+    python3-dateutil \
+    python3-tz \
     && rm -rf /var/lib/apt/lists/*
 
 # 添加 PostgreSQL 官方 APT 源
@@ -49,14 +51,12 @@ RUN apt-get update && apt-get install -y \
 # 安装 Rclone
 RUN curl https://rclone.org/install.sh | bash
 
+# 安装 Python 依赖（只安装系统包没有的）
+RUN pip3 install --no-cache-dir --break-system-packages APScheduler pyminizip || \
+    pip3 install --no-cache-dir --break-system-packages --index-url https://pypi.tuna.tsinghua.edu.cn/simple APScheduler pyminizip
+
 # 创建工作目录
 WORKDIR /app
-
-# 复制 Python 依赖文件
-COPY requirements.txt .
-
-# 安装 Python 依赖
-RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
 
 # 复制应用程序代码
 COPY app/ ./app/

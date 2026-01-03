@@ -1,16 +1,13 @@
 # Python 依赖包列表
 
 # 定时任务调度
-APScheduler==3.10.4
+APScheduler
 
 # HTTP 请求（用于 Webhook 通知）
-requests==2.31.0
+requests
 
 # ZIP 加密支持
-pyminizip==0.2.6
+pyminizip
 
 # 日期时间处理
-python-dateutil==2.8.2
-
-# 环境变量管理
-python-dotenv==1.0.0
+python-dateutil
