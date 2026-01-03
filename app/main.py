@@ -51,7 +51,11 @@ def main():
         
         # 验证 Rclone 配置
         from app.rclone_manager import RcloneManager
-        rclone = RcloneManager(config.rclone_remote, config.rclone_config)
+        rclone = RcloneManager(
+            config.rclone_remote, 
+            config.rclone_config,
+            config.rclone_insecure_skip_verify
+        )
         if not rclone.verify_config():
             logger.error('Rclone 配置验证失败')
             sys.exit(1)

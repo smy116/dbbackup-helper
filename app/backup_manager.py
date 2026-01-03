@@ -34,7 +34,8 @@ class BackupManager:
         self.config = config
         self.rclone = RcloneManager(
             remote=config.rclone_remote,
-            config_file=config.rclone_config
+            config_file=config.rclone_config,
+            insecure_skip_verify=config.rclone_insecure_skip_verify
         )
         
         # 初始化所有插件

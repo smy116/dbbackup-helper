@@ -15,22 +15,41 @@ from app.logger import logger
 class RcloneManager:
     """Rclone 管理类"""
     
-    def __init__(self, remote: str, config_file: str = '/config/rclone.conf'):
+    def __init__(self, remote: str, config_file: str = '/config/rclone.conf', 
+                 insecure_skip_verify: bool = False):
         """
         初始化 Rclone 管理器
         
         Args:
             remote: Rclone 远程存储名称
             config_file: Rclone 配置文件路径
+            insecure_skip_verify: 是否忽略 SSL 证书错误
         """
         self.remote = remote
         self.config_file = config_file
+        self.insecure_skip_verify = insecure_skip_verify
         
         # 验证配置文件存在
         if not os.path.exists(config_file):
             raise FileNotFoundError(f'Rclone 配置文件不存在: {config_file}')
         
-        logger.info(f'Rclone 管理器已初始化: remote={remote}')
+        logger.info(f'Rclone 管理器已初始化: remote={remote}, insecure_skip_verify={insecure_skip_verify}')
+    
+    def _build_base_cmd(self, command: str, *args) -> list:
+        """
+        构建基础的 rclone 命令，自动添加配置文件和 SSL 选项
+        
+        Args:
+            command: rclone 子命令（如 copy, delete, ls, listremotes）
+            *args: 其他命令参数
+            
+        Returns:
+            命令列表
+        """
+        cmd = ['rclone', command] + list(args) + ['--config', self.config_file]
+        if self.insecure_skip_verify:
+            cmd.append('--no-check-certificate')
+        return cmd
     
     def upload_file(self, local_file: str, remote_path: str) -> bool:
         """
@@ -54,14 +73,7 @@ class RcloneManager:
             logger.info(f'开始上传文件: {local_file} -> {full_remote_path}')
             
             # 执行 rclone copy 命令
-            cmd = [
-                'rclone',
-                'copy',
-                local_file,
-                full_remote_path,
-                '--config', self.config_file,
-                '-v'
-            ]
+            cmd = self._build_base_cmd('copy', local_file, full_remote_path, '-v')
             
             result = subprocess.run(
                 cmd,
@@ -103,14 +115,7 @@ class RcloneManager:
             
             # 使用 rclone delete 命令删除超过指定天数的文件
             # --min-age 参数指定文件最小年龄
-            cmd = [
-                'rclone',
-                'delete',
-                full_remote_path,
-                '--min-age', f'{retention_days}d',
-                '--config', self.config_file,
-                '-v'
-            ]
+            cmd = self._build_base_cmd('delete', full_remote_path, '--min-age', f'{retention_days}d', '-v')
             
             result = subprocess.run(
                 cmd,
@@ -146,12 +151,7 @@ class RcloneManager:
         try:
             full_remote_path = f'{self.remote}:{remote_path}'
             
-            cmd = [
-                'rclone',
-                'ls',
-                full_remote_path,
-                '--config', self.config_file
-            ]
+            cmd = self._build_base_cmd('ls', full_remote_path)
             
             result = subprocess.run(
                 cmd,
@@ -178,11 +178,7 @@ class RcloneManager:
             配置是否有效
         """
         try:
-            cmd = [
-                'rclone',
-                'listremotes',
-                '--config', self.config_file
-            ]
+            cmd = self._build_base_cmd('listremotes')
             
             result = subprocess.run(
                 cmd,

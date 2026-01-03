@@ -22,6 +22,7 @@ class Config:
         self.backup_retention_days = int(os.getenv('BACKUP_RETENTION_DAYS', '7'))
         self.rclone_remote = os.getenv('RCLONE_REMOTE', 'backup')
         self.rclone_config = os.getenv('RCLONE_CONFIG', '/config/rclone.conf')
+        self.rclone_insecure_skip_verify = os.getenv('RCLONE_INSECURE_SKIP_VERIFY', 'false').lower() == 'true'
         self.backup_on_start = os.getenv('BACKUP_ON_START', 'false').lower() == 'true'
         self.timezone = os.getenv('TZ', 'UTC')
         

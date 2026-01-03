@@ -85,6 +85,7 @@ docker-compose up -d
 | `BACKUP_RETENTION_DAYS` | 保留天数 | `7` |
 | `BACKUP_ON_START` | 启动时立即备份 | `false` |
 | `RCLONE_REMOTE` | Rclone 远程名称 | `backup` |
+| `RCLONE_INSECURE_SKIP_VERIFY` | 是否忽略 SSL 证书错误 | `false` |
 
 ### Webhook 通知配置
 
