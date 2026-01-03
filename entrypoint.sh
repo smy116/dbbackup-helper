@@ -38,5 +38,8 @@ echo "========================================"
 echo "启动备份服务..."
 echo "========================================"
 
+# 设置 Python 路径以支持模块导入
+export PYTHONPATH=/app:$PYTHONPATH
+
 # 启动主程序
 exec python3 /app/app/main.py
