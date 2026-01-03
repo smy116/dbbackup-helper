@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  db-backup:
+    build: .
+    container_name: db-backup-helper
+    restart: unless-stopped
+    
+    environment:
+      # 时区设置
+      TZ: Asia/Shanghai
+      
+      # 备份配置
+      BACKUP_CRON: "0 2 * * *"  # 每天凌晨2点执行备份
+      BACKUP_ENCRYPT: "false"  # 是否加密备份
+      # BACKUP_PASSWORD: "your-password"  # 加密密码（启用加密时需要设置）
+      BACKUP_RETENTION_DAYS: "7"  # 保留最近7天的备份
+      BACKUP_ON_START: "false"  # 启动时立即执行备份
+      
+      # Rclone 配置
+      RCLONE_REMOTE: "backup"  # 使用 rclone.conf 中名为 backup 的远程存储
+      
+      # Webhook 通知配置（可选）
+      # WEBHOOK_URL: "https://your-webhook-url.com"
+      # WEBHOOK_METHOD: "POST"
+      # WEBHOOK_TYPE: "generic"  # generic 或 message-pusher
+      
+      # Message Pusher 配置（当 WEBHOOK_TYPE=message-pusher 时需要）
+      # MESSAGE_PUSHER_TOKEN: "your-token"
+      # MESSAGE_PUSHER_CHANNEL: "email"
+      
+      # PostgreSQL 配置
+      POSTGRESQL_ENABLED: "true"
+      POSTGRESQL_HOST: "postgres"
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USER: "postgres"
+      POSTGRESQL_PASSWORD: "postgres_password"
+      POSTGRESQL_DATABASES: "all"  # all 或逗号分隔的数据库列表
+      # POSTGRESQL_EXTRA_OPTS: ""
+      
+      # MySQL 配置
+      MYSQL_ENABLED: "false"
+      # MYSQL_HOST: "mysql"
+      # MYSQL_PORT: "3306"
+      # MYSQL_USER: "root"
+      # MYSQL_PASSWORD: "mysql_password"
+      # MYSQL_DATABASES: "all"
+      # MYSQL_EXTRA_OPTS: ""
+      
+      # MariaDB 配置
+      MARIADB_ENABLED: "false"
+      # MARIADB_HOST: "mariadb"
+      # MARIADB_PORT: "3306"
+      # MARIADB_USER: "root"
+      # MARIADB_PASSWORD: "mariadb_password"
+      # MARIADB_DATABASES: "all"
+      # MARIADB_EXTRA_OPTS: ""
+      
+      # MongoDB 配置
+      MONGODB_ENABLED: "false"
+      # MONGODB_HOST: "mongodb"
+      # MONGODB_PORT: "27017"
+      # MONGODB_USER: "admin"
+      # MONGODB_PASSWORD: "mongodb_password"
+      # MONGODB_DATABASES: "all"
+      # MONGODB_AUTH_DB: "admin"
+      # MONGODB_EXTRA_OPTS: ""
+      
+      # Redis 配置
+      REDIS_ENABLED: "false"
+      # REDIS_HOST: "redis"
+      # REDIS_PORT: "6379"
+      # REDIS_PASSWORD: "redis_password"
+    
+    volumes:
+      # Rclone 配置文件
+      - ./rclone.conf:/config/rclone.conf:ro
+      
+      # 日志目录
+      - ./logs:/logs
+    
+    # 网络配置（如果数据库在同一网络中）
+    # networks:
+    #   - db-network
+
+# networks:
+#   db-network:
+#     external: true

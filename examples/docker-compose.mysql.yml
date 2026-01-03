@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql_password
+      MYSQL_DATABASE: testdb
+    ports:
+      - "3306:3306"
+    networks:
+      - db-network
+  
+  # 备份服务
+  db-backup:
+    build: ..
+    container_name: db-backup-mysql
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      TZ: Asia/Shanghai
+      BACKUP_CRON: "*/5 * * * *"
+      BACKUP_ENCRYPT: "false"
+      BACKUP_RETENTION_DAYS: "3"
+      BACKUP_ON_START: "true"
+      RCLONE_REMOTE: "backup"
+      
+      # MySQL 配置
+      MYSQL_ENABLED: "true"
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "mysql_password"
+      MYSQL_DATABASES: "all"
+    volumes:
+      - ./rclone.conf:/config/rclone.conf:ro
+      - ./logs:/logs
+    networks:
+      - db-network
+
+networks:
+  db-network:
+    driver: bridge

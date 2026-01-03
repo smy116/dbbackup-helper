@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: test-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    networks:
+      - db-network
+  
+  # 备份服务
+  db-backup:
+    build: ..
+    container_name: db-backup-postgresql
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      TZ: Asia/Shanghai
+      BACKUP_CRON: "*/5 * * * *"  # 每5分钟执行一次（测试用）
+      BACKUP_ENCRYPT: "false"
+      BACKUP_RETENTION_DAYS: "3"
+      BACKUP_ON_START: "true"  # 启动时立即备份
+      RCLONE_REMOTE: "backup"
+      
+      # PostgreSQL 配置
+      POSTGRESQL_ENABLED: "true"
+      POSTGRESQL_HOST: "postgres"
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USER: "postgres"
+      POSTGRESQL_PASSWORD: "postgres_password"
+      POSTGRESQL_DATABASES: "all"
+    volumes:
+      - ./rclone.conf:/config/rclone.conf:ro
+      - ./logs:/logs
+    networks:
+      - db-network
+
+networks:
+  db-network:
+    driver: bridge

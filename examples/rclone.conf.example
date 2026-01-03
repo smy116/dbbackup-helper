@@ -1,0 +1,41 @@
+# Rclone 配置文件示例
+# 将此文件复制为 rclone.conf 并填入您的实际配置
+
+# Google Drive 示例
+# [backup]
+# type = drive
+# scope = drive
+# token = {"access_token":"your-access-token"}
+# team_drive = 
+
+# Amazon S3 示例
+# [backup]
+# type = s3
+# provider = AWS
+# env_auth = false
+# access_key_id = your-access-key-id
+# secret_access_key = your-secret-access-key
+# region = us-east-1
+# acl = private
+
+# SFTP 示例
+# [backup]
+# type = sftp
+# host = your-sftp-server.com
+# user = your-username
+# port = 22
+# pass = your-encrypted-password
+# key_file = 
+
+# WebDAV 示例（坚果云等）
+# [backup]
+# type = webdav
+# url = https://dav.jianguoyun.com/dav/
+# vendor = other
+# user = your-email@example.com
+# pass = your-encrypted-password
+
+# 本地文件系统示例（仅用于测试）
+[backup]
+type = local
+nocheck_updated = true
