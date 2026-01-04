@@ -6,6 +6,7 @@
 """
 
 import sys
+import signal
 from app.logger import logger, setup_logger
 from app.config import config
 from app.backup_manager import BackupManager
@@ -72,6 +73,14 @@ def main():
         
         # 启动调度器
         logger.info('定时任务已启动，等待执行...')
+
+        # 注册 SIGTERM 信号处理，解决 docker stop 时退出码问题
+        def sigterm_handler(signum, frame):
+            logger.info('收到停止信号 (SIGTERM)，正在退出...')
+            sys.exit(0)
+        
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
         scheduler.start()
         
     except KeyboardInterrupt:
