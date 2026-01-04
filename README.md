@@ -39,7 +39,7 @@ version: '3.8'
 
 services:
   db-backup:
-    image: ghcr.io/smy116/dbbackup-helper:latest
+    image: ghcr.io/smy116/dbbackup-helper:main
     container_name: db-backup
     restart: unless-stopped
     environment:
@@ -401,7 +401,7 @@ cp dump.rdb redis-data/
 # 启动 Redis 容器，挂载数据目录
 docker run -d --name redis-restore \
   -v $(pwd)/redis-data:/data \
-  redis:latest
+  redis:main
 
 # 验证数据
 docker exec -it redis-restore redis-cli

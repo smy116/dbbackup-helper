@@ -22,6 +22,27 @@ services:
     networks:
       - db-network
   
+  # MariaDB 数据库
+  mariadb:
+    image: mariadb:11
+    container_name: test-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: mariadb_password
+      MARIADB_DATABASE: testdb
+    networks:
+      - db-network
+  
+  # MongoDB 数据库
+  mongodb:
+    image: mongo:7
+    container_name: test-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongodb_password
+      MONGO_INITDB_DATABASE: testdb
+    networks:
+      - db-network
+  
   # Redis
   redis:
     image: redis:7-alpine
@@ -38,6 +59,8 @@ services:
     depends_on:
       - postgres
       - mysql
+      - mariadb
+      - mongodb
       - redis
     environment:
       TZ: Asia/Shanghai
@@ -67,6 +90,23 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "mysql_password"
       MYSQL_DATABASES: "all"
+      
+      # MariaDB
+      MARIADB_ENABLED: "true"
+      MARIADB_HOST: "mariadb"
+      MARIADB_PORT: "3306"
+      MARIADB_USER: "root"
+      MARIADB_PASSWORD: "mariadb_password"
+      MARIADB_DATABASES: "all"
+      
+      # MongoDB
+      MONGODB_ENABLED: "true"
+      MONGODB_HOST: "mongodb"
+      MONGODB_PORT: "27017"
+      MONGODB_USER: "admin"
+      MONGODB_PASSWORD: "mongodb_password"
+      MONGODB_DATABASES: "all"
+      MONGODB_AUTH_DB: "admin"
       
       # Redis
       REDIS_ENABLED: "true"
