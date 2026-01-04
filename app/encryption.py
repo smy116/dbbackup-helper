@@ -39,9 +39,6 @@ class Encryption:
             logger.info(f'创建加密 7z 文件: {output_file}')
             logger.debug(f'打包文件数量: {len(files)}')
             
-            # 使用 py7zr 创建加密 7z 文件，启用 header encryption
-            filters = [{'id': py7zr.FILTER_LZMA2, 'preset': compression_level}]
-            
             with py7zr.SevenZipFile(
                 output_file, 
                 'w', 
@@ -85,7 +82,10 @@ class Encryption:
             logger.info(f'创建 7z 文件: {output_file}')
             logger.debug(f'打包文件数量: {len(files)}')
             
-            with py7zr.SevenZipFile(output_file, 'w') as archive:
+            with py7zr.SevenZipFile(
+                output_file, 
+                'w'
+            ) as archive:
                 for file in files:
                     if os.path.exists(file):
                         # 使用文件的基本名称（不含路径）
