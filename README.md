@@ -35,8 +35,6 @@ region = us-east-1
 ### 2. 创建 docker-compose.yml
 
 ```yaml
-version: '3.8'
-
 services:
   db-backup:
     image: ghcr.io/smy116/dbbackup-helper:main
