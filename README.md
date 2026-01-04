@@ -10,7 +10,7 @@
 - 🔌 **插件化架构** - 易于扩展新的数据库类型
 - ⏰ **灵活的定时备份** - 支持 Cron 表达式
 - ☁️ **云存储同步** - 集成 Rclone，支持 40+ 种存储服务
-- 🔐 **安全加密** - 支持 ZIP 密码保护
+- 🔐 **安全加密** - 支持 7z (AES-256) 密码保护
 - 🧹 **自动清理** - 基于保留天数自动清理过期备份
 - 📢 **Webhook 通知** - 支持通用 Webhook
 - 🏗️ **多平台支持** - 支持 amd64、arm64 架构
@@ -224,15 +224,15 @@ environment:
 
 ```
 {RCLONE_REMOTE}/
-├── postgresql/20260103_020000.zip
-├── mysql/20260103_020000.zip
-└── redis/20260103_020000.zip
+├── postgresql/20260103_020000.7z
+├── mysql/20260103_020000.7z
+└── redis/20260103_020000.7z
 ```
 
-每个 ZIP 文件包含该类型的所有数据库：
+每个 7z 文件包含该类型的所有数据库：
 
 ```
-postgresql_20260103_020000.zip
+postgresql_20260103_020000.7z
 ├── myapp.sql
 ├── testdb.sql
 └── postgresql_globals.sql  # PostgreSQL 全局对象
@@ -246,10 +246,11 @@ postgresql_20260103_020000.zip
 
 ```bash
 # 使用 rclone 下载备份
-rclone copy backup:postgresql/20260103_020000.zip ./
+rclone copy backup:postgresql/20260103_020000.7z ./
 
-# 如果备份已加密，需要先解密
-unzip -P your-password 20260103_020000.zip
+# 如果备份已加密，需要先解压
+7z x -pyour-password 20260103_020000.7z
+# 或使用 py7zr：py7zr x -P your-password 20260103_020000.7z
 ```
 
 2. **恢复全局对象（角色、权限等）**
@@ -276,10 +277,10 @@ psql -h localhost -U postgres -d myapp -f myapp.sql
 
 ```bash
 # 使用 rclone 下载备份
-rclone copy backup:mysql/20260103_020000.zip ./
+rclone copy backup:mysql/20260103_020000.7z ./
 
 # 解压备份
-unzip -P your-password 20260103_020000.zip
+7z x -pyour-password 20260103_020000.7z
 ```
 
 2. **恢复数据库**
@@ -306,8 +307,8 @@ MariaDB 的恢复方法与 MySQL 相同：
 
 ```bash
 # 下载并解压
-rclone copy backup:mariadb/20260103_020000.zip ./
-unzip -P your-password 20260103_020000.zip
+rclone copy backup:mariadb/20260103_020000.7z ./
+7z x -pyour-password 20260103_020000.7z
 
 # 恢复单个数据库
 mysql -h localhost -u root -p myapp < myapp.sql
@@ -323,10 +324,10 @@ mysql -h localhost -u root -p myapp < myapp.sql
 
 ```bash
 # 使用 rclone 下载备份
-rclone copy backup:mongodb/20260103_020000.zip ./
+rclone copy backup:mongodb/20260103_020000.7z ./
 
 # 解压备份（会得到 mongodump 格式的目录结构）
-unzip -P your-password 20260103_020000.zip
+7z x -pyour-password 20260103_020000.7z
 ```
 
 2. **恢复数据库**
@@ -363,10 +364,10 @@ Redis 备份使用 RDB 文件格式，恢复方法如下：
 
 ```bash
 # 使用 rclone 下载备份
-rclone copy backup:redis/20260103_020000.zip ./
+rclone copy backup:redis/20260103_020000.7z ./
 
 # 解压获得 RDB 文件
-unzip -P your-password 20260103_020000.zip
+7z x -pyour-password 20260103_020000.7z
 # 会得到 dump.rdb 文件
 ```
 

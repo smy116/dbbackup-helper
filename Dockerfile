@@ -94,8 +94,8 @@ COPY --from=builder /tools/mongorestore /usr/local/bin/
 COPY --from=builder /tools/rclone /usr/local/bin/
 
 # 安装 Python 依赖并清理构建依赖
-RUN (pip3 install --no-cache-dir --break-system-packages APScheduler pyminizip || \
-    pip3 install --no-cache-dir --break-system-packages --index-url https://pypi.tuna.tsinghua.edu.cn/simple APScheduler pyminizip) \
+RUN (pip3 install --no-cache-dir --break-system-packages APScheduler py7zr || \
+    pip3 install --no-cache-dir --break-system-packages --index-url https://pypi.tuna.tsinghua.edu.cn/simple APScheduler py7zr) \
     && apt-get update \
     && apt-get purge -y --auto-remove gnupg gcc libc6-dev python3-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*

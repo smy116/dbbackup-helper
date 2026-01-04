@@ -122,9 +122,9 @@ class BackupManager:
                 
                 temp_files.extend(sql_files)
                 
-                # 生成 ZIP 文件名
+                # 生成 7z 文件名
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                zip_filename = f'{plugin.db_type}_{timestamp}.zip'
+                zip_filename = f'{plugin.db_type}_{timestamp}.7z'
                 zip_path = os.path.join(self.config.temp_dir, zip_filename)
                 
                 # 创建 ZIP 文件（加密或不加密）

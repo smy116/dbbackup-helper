@@ -132,13 +132,13 @@ class MongoDBPlugin(DatabasePlugin):
                 # mongodump 创建的是目录，需要打包成单个文件
                 db_dump_path = os.path.join(dump_dir, database)
                 if os.path.exists(db_dump_path):
-                    # 将整个 dump 目录打包成 ZIP 文件
-                    import zipfile
+                    # 将整个 dump 目录打包成 7z 文件
+                    import py7zr
                     import shutil
                     
-                    # 创建 ZIP 文件
-                    with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                        # 遍历目录，将所有文件添加到 ZIP
+                    # 创建 7z 文件
+                    with py7zr.SevenZipFile(output_file, 'w') as zipf:
+                        # 遍历目录，将所有文件添加到 7z
                         for root, dirs, files in os.walk(db_dump_path):
                             for file in files:
                                 file_path = os.path.join(root, file)
