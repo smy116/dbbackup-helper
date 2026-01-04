@@ -42,19 +42,19 @@ class MySQLPlugin(DatabasePlugin):
             logger.info('正在获取 MySQL 数据库列表...')
             
             # 构建 mysql 命令
+            # 先获取密码，以便在构建命令时包含
+            password = self.config.get('password', '')
+            password_args = [f'-p{password}'] if password else []
+            
             cmd = [
                 'mysql',
                 '-h', self.config.get('host', 'localhost'),
                 '-P', str(self.config.get('port', 3306)),
                 '-u', self.config.get('user', 'root'),
+                *password_args,  # 密码参数紧跟在用户名之后
                 '-N',  # 不输出列名
                 '-e', 'SHOW DATABASES;'
             ]
-            
-            # 添加密码（如果有）
-            password = self.config.get('password', '')
-            if password:
-                cmd.insert(6, f'-p{password}')
             
             result = subprocess.run(
                 cmd,
@@ -94,22 +94,22 @@ class MySQLPlugin(DatabasePlugin):
         """
         try:
             # 构建 mysqldump 命令
+            # 先获取密码，以便在构建命令时包含
+            password = self.config.get('password', '')
+            password_args = [f'-p{password}'] if password else []
+            
             cmd = [
                 'mysqldump',
                 '-h', self.config.get('host', 'localhost'),
                 '-P', str(self.config.get('port', 3306)),
                 '-u', self.config.get('user', 'root'),
+                *password_args,  # 密码参数紧跟在用户名之后
                 '--single-transaction',  # 使用事务确保一致性
                 '--routines',  # 包含存储过程和函数
                 '--triggers',  # 包含触发器
                 '--events',  # 包含事件
                 database
             ]
-            
-            # 添加密码（如果有）
-            password = self.config.get('password', '')
-            if password:
-                cmd.insert(6, f'-p{password}')
             
             # 添加额外参数
             extra_opts = self.config.get('extra_opts', '')

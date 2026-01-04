@@ -1,8 +1,6 @@
 # 数据库备份助手 (Database Backup Helper)
 
 [![Docker Build](https://github.com/smy116/dbbackup-helper/actions/workflows/docker-build.yml/badge.svg)](https://github.com/smy116/dbbackup-helper/actions/workflows/docker-build.yml)
-[![GitHub release](https://img.shields.io/github/v/release/smy116/dbbackup-helper)](https://github.com/smy116/dbbackup-helper/releases)
-[![License](https://img.shields.io/github/license/smy116/dbbackup-helper)](LICENSE)
 
 一个基于 Docker 的多数据库定时备份工具，支持插件化扩展，使用 Python + Rclone 构建。
 
@@ -14,10 +12,8 @@
 - ☁️ **云存储同步** - 集成 Rclone，支持 40+ 种存储服务
 - 🔐 **安全加密** - 支持 AES-256 加密（ZIP 密码保护）
 - 🧹 **自动清理** - 基于保留天数自动清理过期备份
-- 📢 **Webhook 通知** - 支持通用 Webhook 和 Message Pusher
-- 🚀 **即时备份** - 支持容器启动时立即执行备份
-- 🛡️ **容错机制** - 单个数据库失败不影响其他数据库备份
-- 🏗️ **多平台支持** - 支持 amd64、386、arm64、armv7 架构
+- 📢 **Webhook 通知** - 支持通用 Webhook
+- 🏗️ **多平台支持** - 支持 amd64、arm64 架构
 
 ## 📋 快速开始
 
@@ -124,7 +120,59 @@ environment:
   POSTGRESQL_PORT: "5432"
   POSTGRESQL_USER: "postgres"
   POSTGRESQL_PASSWORD: "password"
-  POSTGRESQL_DATABASES: "all"
+  POSTGRESQL_DATABASES: "all"  # 备份所有数据库
+  # POSTGRESQL_DATABASES: "db1,db2"  # 或指定数据库列表
+```
+
+### 备份 MySQL
+
+```yaml
+environment:
+  MYSQL_ENABLED: "true"
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_USER: "root"
+  MYSQL_PASSWORD: "password"
+  MYSQL_DATABASES: "all"  # 备份所有数据库
+  # MYSQL_DATABASES: "app,users"  # 或指定数据库列表
+```
+
+### 备份 MariaDB
+
+```yaml
+environment:
+  MARIADB_ENABLED: "true"
+  MARIADB_HOST: "mariadb"
+  MARIADB_PORT: "3306"
+  MARIADB_USER: "root"
+  MARIADB_PASSWORD: "password"
+  MARIADB_DATABASES: "all"  # 备份所有数据库
+  # MARIADB_DATABASES: "website,blog"  # 或指定数据库列表
+```
+
+### 备份 MongoDB
+
+```yaml
+environment:
+  MONGODB_ENABLED: "true"
+  MONGODB_HOST: "mongodb"
+  MONGODB_PORT: "27017"
+  MONGODB_USER: "admin"
+  MONGODB_PASSWORD: "password"
+  MONGODB_DATABASES: "all"  # 备份所有数据库
+  # MONGODB_DATABASES: "production,staging"  # 或指定数据库列表
+  # MONGODB_AUTH_DB: "admin"  # 认证数据库（可选）
+```
+
+### 备份 Redis
+
+```yaml
+environment:
+  REDIS_ENABLED: "true"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: "password"  # 如果 Redis 启用了密码保护
+  # REDIS_DB: "0"  # Redis 数据库编号（可选，默认为所有）
 ```
 
 ### 备份多个数据库
@@ -134,16 +182,28 @@ environment:
   # PostgreSQL
   POSTGRESQL_ENABLED: "true"
   POSTGRESQL_HOST: "postgres"
+  POSTGRESQL_USER: "postgres"
+  POSTGRESQL_PASSWORD: "pg-password"
   POSTGRESQL_DATABASES: "all"
   
   # MySQL
   MYSQL_ENABLED: "true"
   MYSQL_HOST: "mysql"
+  MYSQL_USER: "root"
+  MYSQL_PASSWORD: "mysql-password"
   MYSQL_DATABASES: "app,users"  # 逗号分隔
+  
+  # MongoDB
+  MONGODB_ENABLED: "true"
+  MONGODB_HOST: "mongodb"
+  MONGODB_USER: "admin"
+  MONGODB_PASSWORD: "mongo-password"
+  MONGODB_DATABASES: "all"
   
   # Redis
   REDIS_ENABLED: "true"
   REDIS_HOST: "redis"
+  REDIS_PASSWORD: "redis-password"
 ```
 
 ### 使用 Message Pusher 通知
@@ -178,20 +238,6 @@ postgresql_20260103_020000.zip
 └── postgresql_globals.sql  # PostgreSQL 全局对象
 ```
 
-## 🔧 高级功能
-
-### 容错机制
-
-如果某个数据库备份失败，其他数据库的备份将继续执行。所有结果会通过 Webhook 发送详细报告。
-
-### 临时文件清理
-
-所有临时文件（SQL、ZIP）在备份流程结束后自动清理，无论成功或失败。
-
-### 日志管理
-
-日志文件按月存储在 `/logs` 目录，格式为 `YYYYMM.log`（如 `202601.log`）。
-
 ## 🏗️ 从源码构建
 
 ```bash
@@ -206,10 +252,6 @@ docker build -t dbbackup-helper .
 docker-compose up -d
 ```
 
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
 ### 添加新的数据库插件
 
 1. 在 `app/plugins/` 创建新插件文件
@@ -217,16 +259,6 @@ docker-compose up -d
 3. 实现必需的方法
 4. 在 `__init__.py` 中注册插件
 
-## 📄 许可证
-
-MIT License
-
 ## 🙏 致谢
 
 - [Rclone](https://rclone.org/) - 云存储同步
-- [APScheduler](https://apscheduler.readthedocs.io/) - 任务调度
-- [Message Pusher](https://github.com/songquanpeng/message-pusher) - 消息推送服务
-
-## 📮 联系方式
-
-如有问题或建议，请提交 [Issue](https://github.com/smy116/dbbackup-helper/issues)。
