@@ -10,7 +10,7 @@
 - 🔌 **插件化架构** - 易于扩展新的数据库类型
 - ⏰ **灵活的定时备份** - 支持 Cron 表达式
 - ☁️ **云存储同步** - 集成 Rclone，支持 40+ 种存储服务
-- 🔐 **安全加密** - 支持 AES-256 加密（ZIP 密码保护）
+- 🔐 **安全加密** - 支持 ZIP 密码保护
 - 🧹 **自动清理** - 基于保留天数自动清理过期备份
 - 📢 **Webhook 通知** - 支持通用 Webhook
 - 🏗️ **多平台支持** - 支持 amd64、arm64 架构
@@ -237,6 +237,189 @@ postgresql_20260103_020000.zip
 ├── testdb.sql
 └── postgresql_globals.sql  # PostgreSQL 全局对象
 ```
+
+## 🔄 数据恢复方法
+
+### PostgreSQL 恢复
+
+1. **下载并解压备份文件**
+
+```bash
+# 使用 rclone 下载备份
+rclone copy backup:postgresql/20260103_020000.zip ./
+
+# 如果备份已加密，需要先解密
+unzip -P your-password 20260103_020000.zip
+```
+
+2. **恢复全局对象（角色、权限等）**
+
+```bash
+# 恢复全局对象（需要超级用户权限）
+psql -h localhost -U postgres -f postgresql_globals.sql
+```
+
+3. **恢复数据库**
+
+```bash
+# 方法1：恢复单个数据库
+psql -h localhost -U postgres -d myapp -f myapp.sql
+
+# 方法2：先创建数据库再恢复
+createdb -h localhost -U postgres myapp
+psql -h localhost -U postgres -d myapp -f myapp.sql
+```
+
+### MySQL 恢复
+
+1. **下载并解压备份文件**
+
+```bash
+# 使用 rclone 下载备份
+rclone copy backup:mysql/20260103_020000.zip ./
+
+# 解压备份
+unzip -P your-password 20260103_020000.zip
+```
+
+2. **恢复数据库**
+
+```bash
+# 方法1：恢复单个数据库（数据库需已存在）
+mysql -h localhost -u root -p myapp < myapp.sql
+
+# 方法2：先创建数据库再恢复
+mysql -h localhost -u root -p -e "CREATE DATABASE myapp;"
+mysql -h localhost -u root -p myapp < myapp.sql
+
+# 方法3：批量恢复所有数据库
+for sql_file in *.sql; do
+    db_name=$(basename "$sql_file" .sql)
+    mysql -h localhost -u root -p -e "CREATE DATABASE IF NOT EXISTS $db_name;"
+    mysql -h localhost -u root -p $db_name < "$sql_file"
+done
+```
+
+### MariaDB 恢复
+
+MariaDB 的恢复方法与 MySQL 相同：
+
+```bash
+# 下载并解压
+rclone copy backup:mariadb/20260103_020000.zip ./
+unzip -P your-password 20260103_020000.zip
+
+# 恢复单个数据库
+mysql -h localhost -u root -p myapp < myapp.sql
+
+# 或先创建数据库
+mysql -h localhost -u root -p -e "CREATE DATABASE myapp;"
+mysql -h localhost -u root -p myapp < myapp.sql
+```
+
+### MongoDB 恢复
+
+1. **下载并解压备份文件**
+
+```bash
+# 使用 rclone 下载备份
+rclone copy backup:mongodb/20260103_020000.zip ./
+
+# 解压备份（会得到 mongodump 格式的目录结构）
+unzip -P your-password 20260103_020000.zip
+```
+
+2. **恢复数据库**
+
+```bash
+# 方法1：恢复单个数据库
+mongorestore --host localhost --port 27017 \
+  --username admin --password password \
+  --authenticationDatabase admin \
+  --db myapp myapp/
+
+# 方法2：恢复到不同名称的数据库
+mongorestore --host localhost --port 27017 \
+  --username admin --password password \
+  --authenticationDatabase admin \
+  --db new_myapp myapp/
+
+# 方法3：恢复整个备份目录（多个数据库）
+mongorestore --host localhost --port 27017 \
+  --username admin --password password \
+  --authenticationDatabase admin \
+  ./
+```
+
+**注意事项：**
+- 使用 `--drop` 参数会在恢复前删除现有集合
+- 使用 `--nsInclude` 可以选择性恢复特定集合
+
+### Redis 恢复
+
+Redis 备份使用 RDB 文件格式，恢复方法如下：
+
+1. **下载备份文件**
+
+```bash
+# 使用 rclone 下载备份
+rclone copy backup:redis/20260103_020000.zip ./
+
+# 解压获得 RDB 文件
+unzip -P your-password 20260103_020000.zip
+# 会得到 dump.rdb 文件
+```
+
+2. **恢复数据**
+
+**方法1：停止 Redis 服务并替换 RDB 文件**
+
+```bash
+# 停止 Redis 服务
+sudo systemctl stop redis
+
+# 备份现有 RDB 文件（可选）
+sudo cp /var/lib/redis/dump.rdb /var/lib/redis/dump.rdb.backup
+
+# 复制备份的 RDB 文件
+sudo cp dump.rdb /var/lib/redis/dump.rdb
+sudo chown redis:redis /var/lib/redis/dump.rdb
+
+# 启动 Redis 服务
+sudo systemctl start redis
+```
+
+**方法2：使用 Docker 容器恢复**
+
+```bash
+# 创建临时目录
+mkdir -p redis-data
+
+# 复制 RDB 文件到数据目录
+cp dump.rdb redis-data/
+
+# 启动 Redis 容器，挂载数据目录
+docker run -d --name redis-restore \
+  -v $(pwd)/redis-data:/data \
+  redis:latest
+
+# 验证数据
+docker exec -it redis-restore redis-cli
+> KEYS *
+> GET some_key
+```
+
+**方法3：在线恢复（使用 redis-cli --pipe）**
+
+对于某些 Redis 版本，可以使用 AOF 格式的备份进行在线恢复，但本工具使用的是 RDB 格式，建议使用方法1或方法2。
+
+**注意事项：**
+- RDB 文件恢复会覆盖所有现有数据
+- 建议在恢复前备份现有数据
+- Redis 数据目录路径可能因安装方式而异，常见路径：
+  - `/var/lib/redis/`
+  - `/data/`（Docker）
+  - 使用 `CONFIG GET dir` 查询实际路径
 
 ## 🏗️ 从源码构建
 
