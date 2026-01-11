@@ -45,7 +45,6 @@ class Encryption:
                 '-m0=lzma2',
                 '-mhe=on',
                 f'-p{self.password}',
-                '-b0',
                 '-y',
                 output_file
             ] + files
@@ -87,7 +86,6 @@ class Encryption:
                 f'-mx={compression_level}',
                 '-m0=lzma2',
                 '-mhe=on',
-                '-b0',
                 '-y',
                 output_file
             ] + files
