@@ -23,7 +23,7 @@ class Encryption:
         """
         self.password = password
 
-    def create_encrypted_7z(self, files: List[str], output_file: str, compression_level: int = 5) -> str:
+    def create_encrypted_7z(self, files: List[str], output_file: str, compression_level: int = 1) -> str:
         """
         创建加密的 7z 文件（启用文件头加密，隐藏文件名列表）
 
@@ -67,7 +67,7 @@ class Encryption:
             logger.error(f'创建加密 7z 文件失败: {e}')
             raise
 
-    def create_7z(self, files: List[str], output_file: str) -> str:
+    def create_7z(self, files: List[str], output_file: str, compression_level: int = 1) -> str:
         """
         创建普通（不加密）的 7z 文件
 
@@ -84,7 +84,9 @@ class Encryption:
 
             cmd = [
                 '7z', 'a', '-t7z',
-                '-mx=5',
+                f'-mx={compression_level}',
+                '-m0=lzma2',
+                '-mhe=on',
                 '-b0',
                 '-y',
                 output_file

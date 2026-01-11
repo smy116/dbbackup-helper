@@ -133,9 +133,9 @@ class MongoDBPlugin(DatabasePlugin):
                 db_dump_path = os.path.join(dump_dir, database)
                 if os.path.exists(db_dump_path):
                     cmd = [
-                        '7z', 'a', '-t7z', '-mx=5', '-b0', '-y', output_file, db_dump_path
+                        '7z', 'a', '-t7z', '-mx=1', '-b0', '-y', output_file, db_dump_path
                     ]
-                    subprocess.run(cmd, check=True, capture_output=True)
+                    subprocess.run(cmd, check=True, capture_output=True, timeout=3600)
 
                     shutil.rmtree(dump_dir)
 
