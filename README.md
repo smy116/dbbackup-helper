@@ -248,7 +248,6 @@ rclone copy backup:postgresql/20260103_020000.7z ./
 
 # 如果备份已加密，需要先解压
 7z x -pyour-password 20260103_020000.7z
-# 或使用 py7zr：py7zr x -P your-password 20260103_020000.7z
 ```
 
 2. **恢复全局对象（角色、权限等）**

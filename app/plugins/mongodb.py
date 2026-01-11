@@ -5,8 +5,9 @@ MongoDB 数据库插件
 使用 mongodump 备份 MongoDB 数据库
 """
 
-import subprocess
 import os
+import shutil
+import subprocess
 from typing import List
 from app.plugins.base import DatabasePlugin
 from app.logger import logger
@@ -129,26 +130,15 @@ class MongoDBPlugin(DatabasePlugin):
             )
             
             if result.returncode == 0:
-                # mongodump 创建的是目录，需要打包成单个文件
                 db_dump_path = os.path.join(dump_dir, database)
                 if os.path.exists(db_dump_path):
-                    # 将整个 dump 目录打包成 7z 文件
-                    import py7zr
-                    import shutil
-                    
-                    # 创建 7z 文件
-                    with py7zr.SevenZipFile(output_file, 'w') as zipf:
-                        # 遍历目录，将所有文件添加到 7z
-                        for root, dirs, files in os.walk(db_dump_path):
-                            for file in files:
-                                file_path = os.path.join(root, file)
-                                # 计算相对路径
-                                arcname = os.path.relpath(file_path, dump_dir)
-                                zipf.write(file_path, arcname)
-                    
-                    # 清理临时目录
+                    cmd = [
+                        '7z', 'a', '-t7z', '-mx=5', '-b0', '-y', output_file, db_dump_path
+                    ]
+                    subprocess.run(cmd, check=True, capture_output=True)
+
                     shutil.rmtree(dump_dir)
-                    
+
                     file_size = os.path.getsize(output_file)
                     logger.info(f'数据库 {database} 备份成功: {self._format_size(file_size)}')
                     return True

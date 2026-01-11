@@ -78,13 +78,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        redis-tools \
        python3 \
        python3-pip \
-       python3-dev \
        python3-requests \
        python3-dateutil \
        python3-tz \
-       gcc \
-       libc6-dev \
-       zlib1g-dev \
+       p7zip-full \
     && rm -rf /var/lib/apt/lists/*
 
 # 从 builder 阶段复制工具
@@ -93,12 +90,10 @@ COPY --from=builder /tools/mongodump /usr/local/bin/
 COPY --from=builder /tools/mongorestore /usr/local/bin/
 COPY --from=builder /tools/rclone /usr/local/bin/
 
-# 安装 Python 依赖并清理构建依赖
-RUN (pip3 install --no-cache-dir --break-system-packages APScheduler py7zr || \
-    pip3 install --no-cache-dir --break-system-packages --index-url https://pypi.tuna.tsinghua.edu.cn/simple APScheduler py7zr) \
-    && apt-get update \
-    && apt-get purge -y --auto-remove gnupg gcc libc6-dev python3-dev zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*
+# 安装 Python 依赖
+RUN (pip3 install --no-cache-dir --break-system-packages APScheduler || \
+    pip3 install --no-cache-dir --break-system-packages --index-url https://pypi.tuna.tsinghua.edu.cn/simple APScheduler) \
+    && rm -rf /var/cache/apt/* /tmp/*
 
 # 创建工作目录
 WORKDIR /app
