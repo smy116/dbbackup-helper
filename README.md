@@ -12,7 +12,7 @@
 - ☁️ **云存储同步** - 集成 Rclone，支持 40+ 种存储服务
 - 🔐 **安全加密** - 支持 7z (AES-256) 密码保护
 - 🧹 **自动清理** - 基于保留天数自动清理过期备份
-- 📢 **Webhook 通知** - 支持通用 Webhook
+- 📢 **NotifyMux 通知** - 仅在备份失败或部分失败时发送通知
 - 🏗️ **多平台支持** - 支持 amd64、arm64 架构
 
 ## 📋 快速开始
@@ -81,15 +81,15 @@ docker-compose up -d
 | `RCLONE_REMOTE` | Rclone 远程名称 | `backup` |
 | `RCLONE_INSECURE_SKIP_VERIFY` | 是否忽略 SSL 证书错误 | `false` |
 
-### Webhook 通知配置
+### NotifyMux 通知配置
+
+NotifyMux 通知仅在备份失败或部分失败时发送。`NOTIFYMUX_ENDPOINT` 填写基础地址，程序会自动请求 `/send` 接口。
 
 | 变量名 | 描述 | 默认值 |
 |--------|------|--------|
-| `WEBHOOK_URL` | Webhook URL | - |
-| `WEBHOOK_METHOD` | HTTP 方法 | `POST` |
-| `WEBHOOK_TYPE` | 类型（`generic`/`message-pusher`） | `generic` |
-| `MESSAGE_PUSHER_TOKEN` | Message Pusher 令牌 | - |
-| `MESSAGE_PUSHER_CHANNEL` | Message Pusher 通道 | - |
+| `NOTIFYMUX_ENDPOINT` | NotifyMux 基础地址，例如 `https://push.smy.me/` | - |
+| `NOTIFYMUX_API_KEY` | NotifyMux API Key；未设置则关闭通知 | - |
+| `NOTIFYMUX_JOB_NAME` | 备份任务名称，用于区分不同备份服务 | `dbbackup-helper` |
 
 ### 数据库配置
 
@@ -204,14 +204,13 @@ environment:
   REDIS_PASSWORD: "redis-password"
 ```
 
-### 使用 Message Pusher 通知
+### 使用 NotifyMux 通知
 
 ```yaml
 environment:
-  WEBHOOK_URL: "https://push.example.com"
-  WEBHOOK_TYPE: "message-pusher"
-  MESSAGE_PUSHER_TOKEN: "your-token"
-  MESSAGE_PUSHER_CHANNEL: "email"
+  NOTIFYMUX_ENDPOINT: "https://push.smy.me/"
+  NOTIFYMUX_API_KEY: "your-api-key"
+  NOTIFYMUX_JOB_NAME: "daily-postgres-backup"
 ```
 
 完整示例请参考 [examples/](examples/) 目录。

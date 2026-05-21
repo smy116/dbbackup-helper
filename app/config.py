@@ -6,7 +6,6 @@
 """
 
 import os
-from typing import Optional
 
 
 class Config:
@@ -26,14 +25,10 @@ class Config:
         self.backup_on_start = os.getenv('BACKUP_ON_START', 'false').lower() == 'true'
         self.timezone = os.getenv('TZ', 'UTC')
         
-        # Webhook 配置
-        self.webhook_url = os.getenv('WEBHOOK_URL', '')
-        self.webhook_method = os.getenv('WEBHOOK_METHOD', 'POST').upper()
-        self.webhook_type = os.getenv('WEBHOOK_TYPE', 'generic').lower()
-        
-        # Message Pusher 配置
-        self.message_pusher_token = os.getenv('MESSAGE_PUSHER_TOKEN', '')
-        self.message_pusher_channel = os.getenv('MESSAGE_PUSHER_CHANNEL', '')
+        # NotifyMux 通知配置
+        self.notifymux_api_key = os.getenv('NOTIFYMUX_API_KEY', '').strip()
+        self.notifymux_endpoint = os.getenv('NOTIFYMUX_ENDPOINT', '').strip()
+        self.notifymux_job_name = os.getenv('NOTIFYMUX_JOB_NAME', 'dbbackup-helper').strip() or 'dbbackup-helper'
         
         # PostgreSQL 配置
         self.postgresql_enabled = os.getenv('POSTGRESQL_ENABLED', 'false').lower() == 'true'
@@ -97,12 +92,9 @@ class Config:
         if not os.path.exists(self.rclone_config):
             raise ValueError(f'Rclone 配置文件不存在: {self.rclone_config}')
         
-        # 检查 Message Pusher 配置
-        if self.webhook_type == 'message-pusher':
-            if not self.webhook_url:
-                raise ValueError('使用 message-pusher 时必须设置 WEBHOOK_URL')
-            if not self.message_pusher_token:
-                raise ValueError('使用 message-pusher 时必须设置 MESSAGE_PUSHER_TOKEN')
+        # 检查 NotifyMux 配置
+        if self.notifymux_api_key and not self.notifymux_endpoint:
+            raise ValueError('设置 NOTIFYMUX_API_KEY 时必须同时设置 NOTIFYMUX_ENDPOINT')
         
         # 检查是否至少启用了一个数据库
         if not any([

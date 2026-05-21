@@ -69,9 +69,10 @@ services:
       BACKUP_ON_START: "false"
       RCLONE_REMOTE: "backup"
       
-      # Webhook 通知
-      WEBHOOK_URL: "https://your-webhook-url.com"
-      WEBHOOK_TYPE: "generic"
+      # NotifyMux 通知（仅备份失败时发送）
+      NOTIFYMUX_ENDPOINT: "https://push.smy.me/"
+      NOTIFYMUX_API_KEY: "your-api-key"
+      NOTIFYMUX_JOB_NAME: "multi-database-backup"
       
       # PostgreSQL
       POSTGRESQL_ENABLED: "true"

@@ -1,284 +1,227 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Webhook 通知模块
-支持通用 Webhook 和 Message Pusher 集成
+NotifyMux 通知模块
+仅在备份存在失败项时发送通知
 """
 
-import requests
-import json
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
+import requests
+
 from app.logger import logger
 
 
-class WebhookNotifier:
-    """Webhook 通知器基类"""
-    
-    def __init__(self, url: str, method: str = 'POST'):
+SUCCESS_STATUS_CODES = {200, 201, 202, 204}
+
+
+class NotifyMuxNotifier:
+    """NotifyMux 通知器"""
+
+    def __init__(self, endpoint: str, api_key: str, job_name: str):
         """
-        初始化通知器
-        
+        初始化 NotifyMux 通知器
+
         Args:
-            url: Webhook URL
-            method: HTTP 方法
+            endpoint: NotifyMux 基础地址，例如 https://push.smy.me/
+            api_key: NotifyMux API Key
+            job_name: 备份任务名称
         """
-        self.url = url
-        self.method = method.upper()
-    
+        self.url = f'{endpoint.rstrip("/")}/send'
+        self.api_key = api_key
+        self.job_name = job_name
+
     def send(self, data: Dict[str, Any], timeout: int = 30) -> bool:
         """
-        发送通知
-        
+        发送 NotifyMux 通知
+
         Args:
             data: 通知数据
             timeout: 请求超时时间（秒）
-            
+
         Returns:
             是否发送成功
         """
         try:
-            logger.info(f'发送 Webhook 通知到: {self.url}')
-            
-            if self.method == 'POST':
-                response = requests.post(
-                    self.url,
-                    json=data,
-                    headers={'Content-Type': 'application/json'},
-                    timeout=timeout
-                )
-            elif self.method == 'GET':
-                response = requests.get(
-                    self.url,
-                    params=data,
-                    timeout=timeout
-                )
-            else:
-                logger.error(f'不支持的 HTTP 方法: {self.method}')
-                return False
-            
-            if response.status_code in [200, 201, 202, 204]:
-                logger.info(f'Webhook 通知发送成功: {response.status_code}')
+            logger.info(f'发送 NotifyMux 通知到: {self.url}')
+            response = requests.post(
+                self.url,
+                json=data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'X-API-Key': self.api_key,
+                },
+                timeout=timeout,
+            )
+
+            if response.status_code in SUCCESS_STATUS_CODES:
+                logger.info(f'NotifyMux 通知发送成功: {response.status_code}')
                 return True
-            else:
-                logger.warning(f'Webhook 通知响应异常: {response.status_code} - {response.text}')
-                return False
-                
+
+            logger.warning(f'NotifyMux 通知响应异常: {response.status_code} - {response.text}')
+            return False
+
         except requests.exceptions.Timeout:
-            logger.error('Webhook 请求超时')
+            logger.error('NotifyMux 请求超时')
             return False
         except Exception as e:
-            logger.error(f'Webhook 发送失败: {e}')
+            logger.error(f'NotifyMux 通知发送失败: {e}')
             return False
 
-
-class GenericWebhook(WebhookNotifier):
-    """通用 Webhook 通知器"""
-    
     def format_notification(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """
-        格式化通知数据
-        
+        格式化 NotifyMux 通知数据
+
         Args:
             results: 备份结果
-            
+
         Returns:
-            格式化后的通知数据
+            NotifyMux 请求体
         """
-        # 确定总体状态
-        if not results['failed']:
-            status = 'success'
-        elif not results['success']:
-            status = 'failed'
-        else:
-            status = 'partial_success'
-        
-        # 计算耗时
-        duration = results.get('end_time', datetime.now()) - results['start_time']
-        duration_str = self._format_duration(duration.total_seconds())
-        
+        success_items = self._format_success_items(results.get('success', []))
+        failed_items = self._format_failed_items(results.get('failed', []))
+
+        end_time = results.get('end_time') or datetime.now()
+        start_time = results.get('start_time') or end_time
+        duration_seconds = max((end_time - start_time).total_seconds(), 0)
+        duration_str = self._format_duration(duration_seconds)
+
+        is_partial_failure = bool(success_items)
+        status = 'partial_failed' if is_partial_failure else 'failed'
+        status_text = '部分失败' if is_partial_failure else '全部失败'
+        title_status = '部分失败' if is_partial_failure else '失败'
+
         return {
-            'status': status,
-            'start_time': results['start_time'].isoformat(),
-            'end_time': results.get('end_time', datetime.now()).isoformat(),
-            'duration': duration_str,
-            'success': results['success'],
-            'failed': results['failed']
+            'title': f'[{self.job_name}] 数据库备份{title_status}',
+            'body': self._format_body(
+                status_text=status_text,
+                start_time=start_time,
+                end_time=end_time,
+                duration_str=duration_str,
+                success_items=success_items,
+                failed_items=failed_items,
+            ),
+            'channelIds': [],
+            'metadata': {
+                'service': 'dbbackup-helper',
+                'job_name': self.job_name,
+                'status': status,
+                'status_text': status_text,
+                'start_time': start_time.isoformat(),
+                'end_time': end_time.isoformat(),
+                'duration_seconds': duration_seconds,
+                'success_count': len(success_items),
+                'failed_count': len(failed_items),
+                'success': success_items,
+                'failed': failed_items,
+            },
         }
-    
-    @staticmethod
-    def _format_duration(seconds: float) -> str:
-        """格式化时长"""
-        if seconds < 60:
-            return f'{int(seconds)}s'
-        elif seconds < 3600:
-            return f'{int(seconds // 60)}m{int(seconds % 60)}s'
-        else:
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            return f'{hours}h{minutes}m'
 
-
-class MessagePusherWebhook(WebhookNotifier):
-    """Message Pusher 通知器"""
-    
-    def __init__(self, url: str, token: str, channel: str = '', username: str = 'admin'):
-        """
-        初始化 Message Pusher 通知器
-        
-        Args:
-            url: Message Pusher 服务 URL
-            token: 推送令牌
-            channel: 推送通道（可选）
-            username: 用户名（默认 admin）
-        """
-        # 构建完整的推送 URL
-        push_url = f'{url.rstrip("/")}/push/{username}'
-        super().__init__(push_url, 'POST')
-        self.token = token
-        self.channel = channel
-    
-    def format_notification(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        格式化为 Message Pusher 格式
-        
-        Args:
-            results: 备份结果
-            
-        Returns:
-            Message Pusher 格式的通知数据
-        """
-        # 确定总体状态
-        if not results['failed']:
-            status = 'success'
-            status_emoji = '✅'
-            status_text = '全部成功'
-        elif not results['success']:
-            status = 'failed'
-            status_emoji = '❌'
-            status_text = '全部失败'
-        else:
-            status = 'partial_success'
-            status_emoji = '⚠️'
-            status_text = '部分成功'
-        
-        # 计算耗时
-        duration = results.get('end_time', datetime.now()) - results['start_time']
-        duration_str = self._format_duration(duration.total_seconds())
-        
-        # 构建 Markdown 内容
-        content_lines = [
-            '## 数据库备份报告',
+    def _format_body(
+        self,
+        status_text: str,
+        start_time: datetime,
+        end_time: datetime,
+        duration_str: str,
+        success_items: List[Dict[str, Any]],
+        failed_items: List[Dict[str, Any]],
+    ) -> str:
+        """构建通知正文"""
+        lines = [
+            f'任务名称: {self.job_name}',
+            f'备份状态: {status_text}',
+            f'开始时间: {start_time.strftime("%Y-%m-%d %H:%M:%S")}',
+            f'结束时间: {end_time.strftime("%Y-%m-%d %H:%M:%S")}',
+            f'总耗时: {duration_str}',
+            f'成功数量: {len(success_items)}',
+            f'失败数量: {len(failed_items)}',
             '',
-            f'**状态**: {status_text} {status_emoji}',
-            f'**开始时间**: {results["start_time"].strftime("%Y-%m-%d %H:%M:%S")}',
-            f'**结束时间**: {results.get("end_time", datetime.now()).strftime("%Y-%m-%d %H:%M:%S")}',
-            f'**总耗时**: {duration_str}',
-            ''
+            '失败明细:',
         ]
-        
-        # 添加成功的备份
-        if results['success']:
-            content_lines.append('### ✅ 成功')
-            for item in results['success']:
-                content_lines.append(f'- **{item["type"]}**: {item["file"]} ({item.get("size", "未知大小")})')
-                if 'databases' in item:
-                    content_lines.append(f'  - 数据库: {", ".join(item["databases"])}')
-            content_lines.append('')
-        
-        # 添加失败的备份
-        if results['failed']:
-            content_lines.append('### ❌ 失败')
-            for item in results['failed']:
-                content_lines.append(f'- **{item["type"]}**: {item["error"]}')
-            content_lines.append('')
-        
-        content = '\n'.join(content_lines)
-        
-        # 构建 Message Pusher 请求数据
-        data = {
-            'title': '数据库备份通知',
-            'description': f'备份状态: {status_text}',
-            'content': content,
-            'token': self.token
-        }
-        
-        # 添加通道（如果指定）
-        if self.channel:
-            data['channel'] = self.channel
-        
-        return data
-    
+
+        for item in failed_items:
+            lines.append(f'- {item["type"]}: {item["error"]}')
+
+        if success_items:
+            lines.extend(['', '成功明细:'])
+            for item in success_items:
+                detail = f'- {item["type"]}: {item["file"]} ({item["size"]})'
+                if item['databases']:
+                    detail += f'，数据库: {", ".join(item["databases"])}'
+                lines.append(detail)
+
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _format_success_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """提取成功备份的通知明细"""
+        return [
+            {
+                'type': item.get('type', 'unknown'),
+                'file': item.get('file', ''),
+                'size': item.get('size', '未知大小'),
+                'databases': item.get('databases', []),
+            }
+            for item in items
+        ]
+
+    @staticmethod
+    def _format_failed_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """提取失败备份的通知明细"""
+        return [
+            {
+                'type': item.get('type', 'unknown'),
+                'error': item.get('error', '未知错误'),
+            }
+            for item in items
+        ]
+
     @staticmethod
     def _format_duration(seconds: float) -> str:
-        """格式化时长"""
+        """格式化耗时"""
         if seconds < 60:
             return f'{int(seconds)}秒'
-        elif seconds < 3600:
+        if seconds < 3600:
             return f'{int(seconds // 60)}分{int(seconds % 60)}秒'
-        else:
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            return f'{hours}小时{minutes}分'
 
-
-def create_notifier(webhook_type: str, webhook_url: str, webhook_method: str = 'POST',
-                   message_pusher_token: str = '', message_pusher_channel: str = '') -> WebhookNotifier:
-    """
-    创建通知器实例
-    
-    Args:
-        webhook_type: Webhook 类型（generic 或 message-pusher）
-        webhook_url: Webhook URL
-        webhook_method: HTTP 方法
-        message_pusher_token: Message Pusher 令牌
-        message_pusher_channel: Message Pusher 通道
-        
-    Returns:
-        通知器实例
-    """
-    if webhook_type == 'message-pusher':
-        return MessagePusherWebhook(
-            url=webhook_url,
-            token=message_pusher_token,
-            channel=message_pusher_channel
-        )
-    else:
-        return GenericWebhook(webhook_url, webhook_method)
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f'{hours}小时{minutes}分'
 
 
 def send_backup_notification(results: Dict[str, Any], config) -> bool:
     """
-    发送备份通知
-    
+    发送备份失败通知
+
     Args:
         results: 备份结果
         config: 配置对象
-        
+
     Returns:
-        是否发送成功
+        是否处理成功
     """
-    # 检查是否配置了 Webhook
-    if not config.webhook_url:
-        logger.info('未配置 Webhook URL，跳过通知')
+    if not results.get('failed'):
+        logger.info('本次备份没有失败项，跳过 NotifyMux 通知')
         return True
-    
+
+    if not config.notifymux_api_key:
+        logger.info('未配置 NOTIFYMUX_API_KEY，跳过 NotifyMux 通知')
+        return True
+
+    if not config.notifymux_endpoint:
+        logger.error('已配置 NOTIFYMUX_API_KEY，但未配置 NOTIFYMUX_ENDPOINT')
+        return False
+
     try:
-        # 创建通知器
-        notifier = create_notifier(
-            webhook_type=config.webhook_type,
-            webhook_url=config.webhook_url,
-            webhook_method=config.webhook_method,
-            message_pusher_token=config.message_pusher_token,
-            message_pusher_channel=config.message_pusher_channel
+        notifier = NotifyMuxNotifier(
+            endpoint=config.notifymux_endpoint,
+            api_key=config.notifymux_api_key,
+            job_name=config.notifymux_job_name,
         )
-        
-        # 格式化通知数据
         notification_data = notifier.format_notification(results)
-        
-        # 发送通知
         return notifier.send(notification_data)
-        
+
     except Exception as e:
-        logger.error(f'发送备份通知失败: {e}')
+        logger.error(f'发送 NotifyMux 备份通知失败: {e}')
         return False
