@@ -8,6 +8,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 import os
+import shutil
 from datetime import datetime
 from app.logger import logger
 
@@ -71,20 +72,25 @@ class DatabasePlugin(ABC):
             output_file: 输出文件路径
             
         Returns:
-            是否备份成功
+            是否备份成功；失败时应抛出异常并说明原因
         """
         pass
     
-    def backup_all_databases(self) -> List[str]:
+    def backup_all_databases(self) -> Dict[str, Any]:
         """
         备份所有数据库
         
         Returns:
-            备份文件路径列表
+            备份结果，包含成功文件和失败明细
         """
+        result = {
+            'files': [],
+            'failed': [],
+        }
+
         if not self.is_enabled():
             logger.info(f'{self.db_type} 插件未启用，跳过备份')
-            return []
+            return result
         
         try:
             logger.info(f'开始备份 {self.db_type} 数据库')
@@ -94,38 +100,60 @@ class DatabasePlugin(ABC):
             
             if not databases:
                 logger.warning(f'{self.db_type}: 没有找到要备份的数据库')
-                return []
+                return result
             
             logger.info(f'{self.db_type}: 找到 {len(databases)} 个数据库')
             
             # 备份每个数据库
-            backup_files = []
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
             for db in databases:
                 # 生成输出文件路径
                 output_file = os.path.join(self.temp_dir, f'{db}.sql')
                 
                 logger.info(f'备份数据库: {db}')
                 
-                # 执行备份
-                if self.backup_database(db, output_file):
-                    backup_files.append(output_file)
-                    logger.info(f'数据库备份成功: {db}')
-                else:
-                    logger.error(f'数据库备份失败: {db}')
+                try:
+                    # 执行备份
+                    if self.backup_database(db, output_file):
+                        result['files'].append(output_file)
+                        logger.info(f'数据库备份成功: {db}')
+                    else:
+                        raise RuntimeError(f'数据库备份失败: {db}')
+                except Exception as e:
+                    logger.error(f'数据库备份失败: {db}: {e}')
+                    self._cleanup_failed_output(output_file)
+                    result['failed'].append({
+                        'type': self.db_type,
+                        'database': db,
+                        'stage': 'dump',
+                        'error': str(e),
+                    })
             
             # 执行额外的备份任务（如 PostgreSQL 的 globals）
-            extra_files = self.backup_extra()
-            if extra_files:
-                backup_files.extend(extra_files)
+            try:
+                extra_files = self.backup_extra()
+                if extra_files:
+                    result['files'].extend(extra_files)
+            except Exception as e:
+                logger.error(f'{self.db_type} 额外备份失败: {e}')
+                result['failed'].append({
+                    'type': self.db_type,
+                    'database': 'extra',
+                    'stage': 'extra',
+                    'error': str(e),
+                })
             
-            logger.info(f'{self.db_type} 备份完成，共 {len(backup_files)} 个文件')
-            return backup_files
+            logger.info(f'{self.db_type} 备份完成，成功 {len(result["files"])} 个文件，失败 {len(result["failed"])} 个')
+            return result
             
         except Exception as e:
             logger.error(f'{self.db_type} 备份失败: {e}')
-            raise
+            result['failed'].append({
+                'type': self.db_type,
+                'database': None,
+                'stage': 'list_databases',
+                'error': str(e),
+            })
+            return result
     
     def backup_extra(self) -> List[str]:
         """
@@ -161,3 +189,14 @@ class DatabasePlugin(ABC):
                 return f'{size_bytes:.2f} {unit}'
             size_bytes /= 1024.0
         return f'{size_bytes:.2f} TB'
+
+    @staticmethod
+    def _cleanup_failed_output(path: str):
+        """清理失败备份留下的部分输出。"""
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.exists(path):
+                os.remove(path)
+        except Exception as e:
+            logger.warning(f'清理失败输出文件失败 {path}: {e}')

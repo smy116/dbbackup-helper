@@ -74,12 +74,18 @@ class MariaDBPlugin(DatabasePlugin):
                 logger.info(f'找到 {len(databases)} 个 MariaDB 数据库: {", ".join(databases)}')
                 return databases
             else:
-                logger.error(f'获取数据库列表失败: {result.stderr}')
-                return []
+                error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                logger.error(f'获取数据库列表失败: {error}')
+                raise RuntimeError(f'获取数据库列表失败: {error}')
                 
+        except subprocess.TimeoutExpired as e:
+            logger.error('获取数据库列表超时')
+            raise RuntimeError('获取数据库列表超时') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'获取数据库列表异常: {e}')
-            return []
+            raise RuntimeError(f'获取数据库列表异常: {e}') from e
     
     def backup_database(self, database: str, output_file: str) -> bool:
         """
@@ -133,14 +139,17 @@ class MariaDBPlugin(DatabasePlugin):
                     return True
                 else:
                     logger.error(f'备份文件未生成: {output_file}')
-                    return False
+                    raise RuntimeError(f'备份文件未生成: {output_file}')
             else:
-                logger.error(f'mariadb-dump 执行失败: {result.stderr}')
-                return False
+                error = result.stderr.strip() or f'退出码 {result.returncode}'
+                logger.error(f'mariadb-dump 执行失败: {error}')
+                raise RuntimeError(f'mariadb-dump 执行失败: {error}')
                 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error(f'备份超时: {database}')
-            return False
+            raise RuntimeError(f'备份超时: {database}') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'备份异常: {e}')
-            return False
+            raise RuntimeError(f'备份异常: {e}') from e

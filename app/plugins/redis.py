@@ -94,16 +94,24 @@ class RedisPlugin(DatabasePlugin):
                 return True
             else:
                 # 尝试使用 SAVE 命令
+                if result.returncode != 0:
+                    error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                    logger.error(f'redis-cli --rdb 执行失败: {error}')
                 logger.info('尝试使用 SAVE 命令备份...')
                 return self._backup_using_save(output_file)
                 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error('备份超时')
-            return False
+            raise RuntimeError('备份超时') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'备份异常: {e}')
             # 尝试备用方案
-            return self._backup_using_save(output_file)
+            try:
+                return self._backup_using_save(output_file)
+            except Exception as fallback_error:
+                raise RuntimeError(f'备份异常: {e}; SAVE 备用方案失败: {fallback_error}') from fallback_error
     
     def _backup_using_save(self, output_file: str) -> bool:
         """
@@ -166,11 +174,14 @@ class RedisPlugin(DatabasePlugin):
                             return True
                 
                 logger.warning('无法获取 RDB 文件路径，请确保有访问 Redis 数据目录的权限')
-                return False
+                raise RuntimeError('无法获取 RDB 文件路径，请确保有访问 Redis 数据目录的权限')
             else:
-                logger.error(f'SAVE 命令执行失败: {result.stderr}')
-                return False
+                error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                logger.error(f'SAVE 命令执行失败: {error}')
+                raise RuntimeError(f'SAVE 命令执行失败: {error}')
                 
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'SAVE 命令执行异常: {e}')
-            return False
+            raise RuntimeError(f'SAVE 命令执行异常: {e}') from e

@@ -141,7 +141,12 @@ class NotifyMuxNotifier:
         ]
 
         for item in failed_items:
-            lines.append(f'- {item["type"]}: {item["error"]}')
+            target = item['type']
+            if item.get('database'):
+                target = f'{target}/{item["database"]}'
+            if item.get('stage'):
+                target = f'{target} [{item["stage"]}]'
+            lines.append(f'- {target}: {item["error"]}')
 
         if success_items:
             lines.extend(['', '成功明细:'])
@@ -172,6 +177,8 @@ class NotifyMuxNotifier:
         return [
             {
                 'type': item.get('type', 'unknown'),
+                'database': item.get('database'),
+                'stage': item.get('stage'),
                 'error': item.get('error', '未知错误'),
             }
             for item in items

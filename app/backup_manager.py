@@ -113,11 +113,24 @@ class BackupManager:
                 logger.info(f'开始备份 {plugin.db_type}')
                 logger.info(f'{"=" * 60}')
                 
-                # 执行备份，获取所有 SQL 文件
-                sql_files = plugin.backup_all_databases()
+                # 执行备份，获取成功文件和失败明细
+                backup_result = plugin.backup_all_databases()
+                if isinstance(backup_result, dict):
+                    sql_files = backup_result.get('files', [])
+                    failed_items = backup_result.get('failed', [])
+                else:
+                    sql_files = backup_result
+                    failed_items = []
+
+                for failed_item in failed_items:
+                    failed_item.setdefault('type', plugin.db_type)
+                    results['failed'].append(failed_item)
                 
                 if not sql_files:
-                    logger.warning(f'{plugin.db_type}: 没有生成备份文件')
+                    if failed_items:
+                        logger.error(f'{plugin.db_type}: 没有成功生成备份文件')
+                    else:
+                        logger.warning(f'{plugin.db_type}: 没有生成备份文件')
                     continue
                 
                 temp_files.extend(sql_files)
@@ -171,6 +184,7 @@ class BackupManager:
                 
                 results['failed'].append({
                     'type': plugin.db_type,
+                    'stage': 'archive_upload',
                     'error': str(e),
                     'traceback': traceback.format_exc()
                 })

@@ -76,12 +76,18 @@ class MongoDBPlugin(DatabasePlugin):
                 logger.info(f'找到 {len(databases)} 个 MongoDB 数据库: {", ".join(databases)}')
                 return databases
             else:
-                logger.error(f'获取数据库列表失败: {result.stderr}')
-                return []
+                error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                logger.error(f'获取数据库列表失败: {error}')
+                raise RuntimeError(f'获取数据库列表失败: {error}')
                 
+        except subprocess.TimeoutExpired as e:
+            logger.error('获取数据库列表超时')
+            raise RuntimeError('获取数据库列表超时') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'获取数据库列表异常: {e}')
-            return []
+            raise RuntimeError(f'获取数据库列表异常: {e}') from e
     
     def backup_database(self, database: str, output_file: str) -> bool:
         """
@@ -94,10 +100,10 @@ class MongoDBPlugin(DatabasePlugin):
         Returns:
             是否备份成功
         """
+        dump_dir = os.path.join(self.temp_dir, f'{database}_dump')
         try:
             # MongoDB 的 mongodump 会创建目录，我们需要自己管理
             # 为每个数据库创建临时目录
-            dump_dir = os.path.join(self.temp_dir, f'{database}_dump')
             os.makedirs(dump_dir, exist_ok=True)
             
             # 构建 mongodump 命令
@@ -144,14 +150,20 @@ class MongoDBPlugin(DatabasePlugin):
                     return True
                 else:
                     logger.error(f'备份目录未生成: {db_dump_path}')
-                    return False
+                    raise RuntimeError(f'备份目录未生成: {db_dump_path}')
             else:
-                logger.error(f'mongodump 执行失败: {result.stderr}')
-                return False
+                error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                logger.error(f'mongodump 执行失败: {error}')
+                raise RuntimeError(f'mongodump 执行失败: {error}')
                 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error(f'备份超时: {database}')
-            return False
+            raise RuntimeError(f'备份超时: {database}') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'备份异常: {e}')
-            return False
+            raise RuntimeError(f'备份异常: {e}') from e
+        finally:
+            if os.path.exists(dump_dir):
+                shutil.rmtree(dump_dir, ignore_errors=True)

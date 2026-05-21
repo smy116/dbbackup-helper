@@ -46,7 +46,7 @@ def get_databases(self) -> List[str]:
     如果配置为 'all'，则自动获取所有数据库（排除系统库）
     如果配置为逗号分隔的列表，则返回解析后的列表
     
-    返回: 数据库名称列表
+    返回: 数据库名称列表；连接或查询失败时应抛出异常，查询成功但列表为空时返回 []
     """
     pass
 ```
@@ -63,7 +63,7 @@ def backup_database(self, database: str, output_file: str) -> bool:
         database: 数据库名称
         output_file: 输出文件路径（.sql 或其他格式）
         
-    返回: True 表示成功，False 表示失败
+    返回: True 表示成功；失败时应抛出异常并说明原因
     """
     pass
 ```
@@ -157,12 +157,18 @@ class CassandraPlugin(DatabasePlugin):
                 logger.info(f'找到 {len(keyspaces)} 个 Cassandra keyspace')
                 return keyspaces
             else:
-                logger.error(f'获取 keyspace 列表失败: {result.stderr}')
-                return []
+                error = result.stderr.strip() or result.stdout.strip() or f'退出码 {result.returncode}'
+                logger.error(f'获取 keyspace 列表失败: {error}')
+                raise RuntimeError(f'获取 keyspace 列表失败: {error}')
                 
+        except subprocess.TimeoutExpired as e:
+            logger.error('获取 keyspace 列表超时')
+            raise RuntimeError('获取 keyspace 列表超时') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'获取 keyspace 列表异常: {e}')
-            return []
+            raise RuntimeError(f'获取 keyspace 列表异常: {e}') from e
     
     def backup_database(self, database: str, output_file: str) -> bool:
         """备份单个 Cassandra keyspace"""
@@ -197,17 +203,20 @@ class CassandraPlugin(DatabasePlugin):
                     return True
                 else:
                     logger.error(f'备份文件未生成: {output_file}')
-                    return False
+                    raise RuntimeError(f'备份文件未生成: {output_file}')
             else:
-                logger.error(f'cqlsh 执行失败: {result.stderr}')
-                return False
+                error = result.stderr.strip() or f'退出码 {result.returncode}'
+                logger.error(f'cqlsh 执行失败: {error}')
+                raise RuntimeError(f'cqlsh 执行失败: {error}')
                 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error(f'备份超时: {database}')
-            return False
+            raise RuntimeError(f'备份超时: {database}') from e
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f'备份异常: {e}')
-            return False
+            raise RuntimeError(f'备份异常: {e}') from e
 ```
 
 ### 步骤 2: 注册插件
@@ -292,15 +301,18 @@ try:
             logger.info(f'备份成功')
             return True
     else:
-        logger.error(f'命令执行失败: {result.stderr}')
-        return False
+        error = result.stderr.strip() or f'退出码 {result.returncode}'
+        logger.error(f'命令执行失败: {error}')
+        raise RuntimeError(f'命令执行失败: {error}')
         
-except subprocess.TimeoutExpired:
+except subprocess.TimeoutExpired as e:
     logger.error('备份超时')
-    return False
+    raise RuntimeError('备份超时') from e
+except RuntimeError:
+    raise
 except Exception as e:
     logger.error(f'备份异常: {e}')
-    return False
+    raise RuntimeError(f'备份异常: {e}') from e
 ```
 
 ### 2. 日志记录
